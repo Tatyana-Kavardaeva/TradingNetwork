@@ -1,6 +1,9 @@
 from django.db import models
+from rest_framework.exceptions import ValidationError
+
 
 NULLABLE = {"blank": True, "null": True}
+
 COMPANY_TYPE = [
     ('factory', 'Завод'),
     ('retail', 'Розничная сеть'),
@@ -27,6 +30,17 @@ class Company(models.Model):
                                verbose_name='Задолженность перед поставщиком')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Время создания')
 
+    company_level = models.PositiveIntegerField(verbose_name='Уровень иерархии торговой компании')
+
+    def clean(self):
+        # Проверка на отрицательное значение задолженности
+        if self.debt < 0:
+            raise ValidationError({'debt': 'Задолженность не может быть отрицательным значением.'})
+
+        # Проверка на то, чтобы компания не могла быть собственным поставщиком
+        if self.supplier == self:
+            raise ValidationError({'supplier': 'Компания не может быть собственным поставщиком.'})
+
     def __str__(self):
         return self.name
 
@@ -38,11 +52,12 @@ class Company(models.Model):
 
 class Product(models.Model):
     """ Модель продукта. """
+
     name = models.CharField(max_length=255, verbose_name='Название')
     model = models.CharField(max_length=100, verbose_name='Модель')
     release_date = models.DateField(verbose_name='Дата выхода продукта на рынок')
 
-    company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='products',
+    company = models.ForeignKey('Company', on_delete=models.SET_NULL, **NULLABLE, related_name='products',
                                 verbose_name='Торговая компания')
 
     def __str__(self):
