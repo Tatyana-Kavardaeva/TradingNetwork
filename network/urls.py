@@ -6,6 +6,6 @@ from network.views import CompanyViewSet
 app_name = NetworkConfig.name
 
 router = SimpleRouter()
-router.register('company', CompanyViewSet)
+router.register('companies', CompanyViewSet)
 
 urlpatterns = [] + router.urls
