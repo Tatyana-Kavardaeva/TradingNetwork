@@ -1,35 +1,32 @@
 from rest_framework import serializers
-from network.models import Company, Product
+from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
+
+from network.models import Company
+from network.validators import SupplierTypeValidator
 
 
 class CompanySerializer(serializers.ModelSerializer):
     """ Serializer для модели Company. """
 
-    company_level = serializers.SerializerMethodField(read_only=True)
-
-    def get_company_level(self, instance):
-        """ Получает уровень иерархии торговой компании. """
-
-        if instance.supplier is None:
-            return 0  # Завод
-        elif instance.supplier.level == 0:
-            return 1  # Компания, которая напрямую относится к заводу
-        else:
-            return 2  # Индивидуальный предприниматель или другие типы компаний
+    email = serializers.EmailField(
+        validators=[UniqueValidator(queryset=Company.objects.all(), message="Такой email уже зарегистрирован.")]
+    )
 
     class Meta:
         model = Company
         fields = '__all__'
-        read_only_fields = ('debt',)
-        # validators = [
-        #     TitleValidator('title'),
-        #     serializers.UniqueTogetherValidator(fields=["title"], queryset=Course.objects.all())
-        # ]
+        read_only_fields = ('company_level',)
+        validators = [
+            SupplierTypeValidator(['type', 'supplier']),
+            UniqueTogetherValidator(queryset=Company.objects.all(), fields=['name', 'type', 'country', 'city'],
+                                    message="Компания уже существует в этом регионе."),
+        ]
 
+    def update(self, instance, validated_data):
+        """ Удаляет возможность обновлять поле 'задолженность перед поставщиком'. """
 
-class ProductSerializer(serializers.ModelSerializer):
-    """ Serializer для модели Product. """
+        validated_data.pop('debt', None)
 
-    class Meta:
-        model = Product
-        fields = '__all__'
+        instance.name = validated_data.get('name', instance.name)
+        instance.save()
+        return instance
